@@ -478,7 +478,7 @@ body {
   <div id="tb-right">
     <span id="last-upd"></span>
     <button class="tbtn" id="ref-btn">↻ Refresh</button>
-    <button class="tbtn" id="keys-btn">⚙ API Keys</button>
+    <button class="tbtn" id="keys-btn">⚙ Data Sources</button>
   </div>
 </header>
 
@@ -502,17 +502,19 @@ body {
 <div id="sov">
   <div id="sp">
     <div class="sp-t">API Configuration</div>
-    <div class="sp-n">The dashboard runs on World Bank data without any keys. Add free FRED and Alpha Vantage keys to unlock bond yields, VIX, Gold, Oil, and FX time series.</div>
+    <div class="sp-n">Add a free FRED key to unlock financial series. World Bank and ECB data load automatically with no key.</div>
+    <div style="background:#0d0d1a;border:1px solid #1a1a3a;padding:11px 13px;margin-bottom:16px;font-size:10.5px;line-height:1.9;color:#b0b0a8;">
+      <div style="color:#5b9bd4;font-size:8.5px;letter-spacing:2px;margin-bottom:5px;">DATA SOURCES</div>
+      <div>🌐 <strong style="color:#f0f0eb">World Bank</strong> — GDP, CPI, debt, Gini, governance — no key needed</div>
+      <div>🏦 <strong style="color:#f0f0eb">ECB SDW</strong> — DE, FR, GR yields + ECB rate — no key needed</div>
+      <div>📈 <strong style="color:#f0f0eb">FRED</strong> — VIX, Gold, Oil, yields, FX — free key required</div>
+    </div>
     <div class="sf">
       <label>FRED API Key <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank">→ Get free key</a></label>
       <input type="text" id="fi" placeholder="32-character alphanumeric key">
-      <div class="fn">Enables: 10yr yields (US, DE, FR, GR, TR), VIX, Gold, Oil, Fed Funds Rate, EUR/USD, TRY/USD, CNY/USD, US unemployment</div>
+      <div class="fn">Enables: VIX, Gold, Brent, US 10yr yield, TR yield, all FX pairs, Fed Funds Rate</div>
     </div>
-    <div class="sf">
-      <label>Alpha Vantage Key <a href="https://www.alphavantage.co/support/#api-key" target="_blank">→ Get free key</a></label>
-      <input type="text" id="ai" placeholder="Key (optional — FRED covers most FX)">
-      <div class="fn">Supplemental FX data. FRED is sufficient for v1.</div>
-    </div>
+    <div id="diag" style="font-size:10px;min-height:14px;margin-bottom:10px;"></div>
     <div class="sa">
       <button class="bp" id="save-k">Save &amp; Apply</button>
       <button class="bs" id="cls-k">Cancel</button>
@@ -524,25 +526,22 @@ body {
 // ═══════════════════════════════════════════
 // 1. CONFIG
 // ═══════════════════════════════════════════
-const CFG = {
-  fred: localStorage.getItem('ag_fred') || '',
-  av:   localStorage.getItem('ag_av') || '',
-};
+const CFG = {};
 
 // ═══════════════════════════════════════════
 // 2. GEO DEFINITIONS
 // ═══════════════════════════════════════════
 const GEOS = [
-  { id:'global', name:'Global',   flag:'🌐', sub:'World aggregate',           type:'global', wbCode:'1W',  spreadRef:null,  fredY10:null,         fredY2:null,    fredCB:null,       fredCPI:null,         fredUn:null,       fredFX:null,       fxLabel:null,        fxDir:1,  dataLtd:false },
-  { id:'usa',    name:'USA',      flag:'🇺🇸', sub:'United States of America',  type:'country',wbCode:'US',  spreadRef:null,  fredY10:'DGS10',       fredY2:'DGS2', fredCB:'FEDFUNDS', fredCPI:'CPIAUCSL',   fredUn:'UNRATE',   fredFX:null,       fxLabel:null,        fxDir:1,  dataLtd:false },
-  { id:'china',  name:'China',    flag:'🇨🇳', sub:"People's Republic of China",type:'country',wbCode:'CN',  spreadRef:'usa', fredY10:null,          fredY2:null,   fredCB:null,       fredCPI:null,         fredUn:null,       fredFX:'DEXCHUS',  fxLabel:'CNY/USD',   fxDir:-1, dataLtd:false },
-  { id:'brics',  name:'BRICS',    flag:'🤝', sub:'GDP-weighted composite',    type:'bloc',   wbCodes:['CN','RU','IN','BR','ZA'], wbWeights:[.67,.05,.16,.08,.02], spreadRef:'usa', dataLtd:false },
-  { id:'greece', name:'Greece',   flag:'🇬🇷', sub:'Hellenic Republic',        type:'country',wbCode:'GR',  spreadRef:'germany', fredY10:'IRLTLT01GRM156N', fredY2:null, fredCB:'ECBDFR', fredCPI:null, fredUn:null, fredFX:'DEXUSEU',  fxLabel:'EUR/USD',   fxDir:1,  dataLtd:false },
-  { id:'germany',name:'Germany',  flag:'🇩🇪', sub:'Federal Republic of Germany',type:'country',wbCode:'DE', spreadRef:null,  fredY10:'IRLTLT01DEM156N', fredY2:null, fredCB:'ECBDFR', fredCPI:null, fredUn:null, fredFX:'DEXUSEU',  fxLabel:'EUR/USD',   fxDir:1,  dataLtd:false },
-  { id:'france', name:'France',   flag:'🇫🇷', sub:'French Republic',          type:'country',wbCode:'FR',  spreadRef:'germany', fredY10:'IRLTLT01FRM156N', fredY2:null, fredCB:'ECBDFR', fredCPI:null, fredUn:null, fredFX:'DEXUSEU',  fxLabel:'EUR/USD',   fxDir:1,  dataLtd:false },
-  { id:'turkey', name:'Turkey',   flag:'🇹🇷', sub:'Republic of Türkiye',      type:'country',wbCode:'TR',  spreadRef:'usa', fredY10:'IRLTLT01TRM156N', fredY2:null, fredCB:null,     fredCPI:null, fredUn:null, fredFX:'DEXTUUS',  fxLabel:'TRY/USD',   fxDir:-1, dataLtd:false },
-  { id:'russia', name:'Russia',   flag:'🇷🇺', sub:'Russian Federation',       type:'country',wbCode:'RU',  spreadRef:'usa', fredY10:null,          fredY2:null,   fredCB:null,       fredCPI:null,         fredUn:null,       fredFX:'DEXRUUS',  fxLabel:'RUB/USD',   fxDir:-1, dataLtd:true },
-];
+  { id:'global', name:'Global',   flag:'🌐', sub:'World aggregate',           type:'global', wbCode:'1W',  spreadRef:null,  fredY10:null,                  fredCB:null,       fredFX:null,       fxLabel:null,      ecbY10:null  },
+  { id:'usa',    name:'USA',      flag:'🇺🇸', sub:'United States of America',  type:'country',wbCode:'US',  spreadRef:null,  fredY10:'DGS10',               fredCB:'FEDFUNDS', fredFX:null,       fxLabel:null,      ecbY10:null  },
+  { id:'china',  name:'China',    flag:'🇨🇳', sub:"People's Republic of China",type:'country',wbCode:'CN',  spreadRef:'usa', fredY10:null,                  fredCB:null,       fredFX:'DEXCHUS',  fxLabel:'CNY/USD', ecbY10:null  },
+  { id:'brics',  name:'BRICS',    flag:'🤝', sub:'GDP-weighted composite',    type:'bloc',   wbCodes:['CN','RU','IN','BR','ZA'], wbWeights:[.67,.05,.16,.08,.02], spreadRef:'usa' },
+  { id:'greece', name:'Greece',   flag:'🇬🇷', sub:'Hellenic Republic',        type:'country',wbCode:'GR',  spreadRef:'germany', fredY10:null,              fredCB:null,       fredFX:'DEXUSEU',  fxLabel:'EUR/USD', ecbY10:'GR'  },
+  { id:'germany',name:'Germany',  flag:'🇩🇪', sub:'Federal Republic of Germany',type:'country',wbCode:'DE', spreadRef:null,  fredY10:null,                  fredCB:null,       fredFX:'DEXUSEU',  fxLabel:'EUR/USD', ecbY10:'DE'  },
+  { id:'france', name:'France',   flag:'🇫🇷', sub:'French Republic',          type:'country',wbCode:'FR',  spreadRef:'germany', fredY10:null,              fredCB:null,       fredFX:'DEXUSEU',  fxLabel:'EUR/USD', ecbY10:'FR'  },
+  { id:'turkey', name:'Turkey',   flag:'🇹🇷', sub:'Republic of Türkiye',      type:'country',wbCode:'TR',  spreadRef:'usa', fredY10:'IRLTLT01TRM156N',     fredCB:null,       fredFX:'DEXTUUS',  fxLabel:'TRY/USD', ecbY10:null  },
+  { id:'russia', name:'Russia',   flag:'🇷🇺', sub:'Russian Federation',       type:'country',wbCode:'RU',  spreadRef:'usa', fredY10:null,                  fredCB:null,       fredFX:'DEXRUUS',  fxLabel:'RUB/USD', ecbY10:null,  dataLtd:true },
+]
 const GEO = Object.fromEntries(GEOS.map(g => [g.id, g]));
 
 const WBI = {
@@ -567,46 +566,78 @@ const _C = {};
 async function cached(k, fn, ttl=3600000) {
   const now = Date.now();
   if (_C[k] && (now - _C[k].ts < ttl)) return _C[k].d;
-  try {
-    const d = await fn();
-    _C[k] = { d, ts: now };
-    return d;
-  } catch(e) { return null; }
+  const d = await fn();
+  if (d !== null) _C[k] = { d, ts: now };
+  return d;
 }
 
-function fredFetch(series, n=60) {
-  if (!CFG.fred) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const cb = 'fc_' + series.replace(/[^a-z0-9]/gi,'_') + '_' + Date.now();
-    const script = document.createElement('script');
-    const timer = setTimeout(() => {
-      delete window[cb]; script.remove();
-      console.warn("FRED " + series + ": timeout"); resolve(null);
-    }, 10000);
-    window[cb] = (d) => {
-      clearTimeout(timer); delete window[cb]; script.remove();
-      if (d.error_message) { console.warn("FRED " + series + ": " + d.error_message); resolve(null); return; }
-      resolve((d.observations||[])
-        .filter(o => o.value !== '.' && o.value !== '')
-        .map(o => ({ dt: o.date, v: parseFloat(o.value) }))
-        .reverse());
-    };
-    script.onerror = () => { clearTimeout(timer); delete window[cb]; script.remove(); console.warn("FRED " + series + ": script error"); resolve(null); };
-    script.src = "https://api.stlouisfed.org/fred/series/observations?series_id=" + series + "&api_key=" + CFG.fred + "&file_type=json&sort_order=desc&limit=" + n + "&callback=" + cb;
-    document.head.appendChild(script);
-  });
+const CFG = { fred: localStorage.getItem('ag_fred') || '' };
+
+async function fredFetch(series, n=60) {
+  if (!CFG.fred) return null;
+  const url = 'https://api.stlouisfed.org/fred/series/observations'
+    + '?series_id=' + series
+    + '&api_key=' + CFG.fred
+    + '&file_type=json&sort_order=desc&limit=' + n;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) { console.warn('FRED ' + series + ': HTTP ' + r.status); return null; }
+    const d = await r.json();
+    if (d.error_message) { console.warn('FRED ' + series + ': ' + d.error_message); return null; }
+    return (d.observations||[])
+      .filter(o => o.value !== '.' && o.value !== '')
+      .map(o => ({ dt: o.date, v: parseFloat(o.value) }))
+      .reverse();
+  } catch(e) { console.warn('FRED ' + series + ':', e.message); return null; }
+}
+
+async function ecbYield(country, months=36) {
+  const key = 'IRS/M.' + country + '.L.L10.CI.0.EUR.N.Z';
+  const url = 'https://data-api.ecb.europa.eu/service/data/' + key
+    + '?format=jsondata&lastNObservations=' + months;
+  try {
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const series  = d?.dataSets?.[0]?.series?.['0:0:0:0:0:0:0:0:0']?.observations;
+    const periods = d?.structure?.dimensions?.observation?.[0]?.values;
+    if (!series || !periods) return null;
+    return Object.entries(series)
+      .map(([i, obs]) => ({ dt: periods[parseInt(i)]?.id || '', v: obs[0] }))
+      .filter(o => o.v !== null)
+      .sort((a,b) => a.dt.localeCompare(b.dt));
+  } catch(e) { console.warn('ECB ' + country + ':', e.message); return null; }
+}
+
+async function ecbRate() {
+  const url = 'https://data-api.ecb.europa.eu/service/data/FM/B.U2.EUR.4F.KR.DFR.LEV?format=jsondata&lastNObservations=24';
+  try {
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const series  = d?.dataSets?.[0]?.series?.['0:0:0:0:0:0']?.observations;
+    const periods = d?.structure?.dimensions?.observation?.[0]?.values;
+    if (!series || !periods) return null;
+    return Object.entries(series)
+      .map(([i, obs]) => ({ dt: periods[parseInt(i)]?.id || '', v: obs[0] }))
+      .filter(o => o.v !== null)
+      .sort((a,b) => a.dt.localeCompare(b.dt));
+  } catch(e) { console.warn('ECB rate:', e.message); return null; }
 }
 
 async function wbSeries(country, ind, start=2004) {
-  const url = `https://api.worldbank.org/v2/country/${country}/indicator/${ind}?format=json&per_page=30&date=${start}:2024`;
-  const r = await fetch(url);
-  if (!r.ok) return [];
-  const d = await r.json();
-  if (!d[1]) return [];
-  return d[1]
-    .filter(o => o.value !== null)
-    .map(o => ({ yr: parseInt(o.date), v: o.value }))
-    .sort((a,b) => a.yr - b.yr);
+  const url = 'https://api.worldbank.org/v2/country/' + country
+    + '/indicator/' + ind + '?format=json&per_page=30&date=' + start + ':2024';
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const d = await r.json();
+    if (!d[1]) return [];
+    return d[1]
+      .filter(o => o.value !== null)
+      .map(o => ({ yr: parseInt(o.date), v: o.value }))
+      .sort((a,b) => a.yr - b.yr);
+  } catch(e) { return []; }
 }
 
 // ═══════════════════════════════════════════
@@ -889,9 +920,8 @@ function renderScoreRing(score) {
 
 function renderGeoShell(geo) {
   // Determine which charts to show based on geo type
-  const hasFred = !!CFG.fred;
-  const hasY10  = !!geo.fredY10;
-  const hasFX   = !!geo.fredFX;
+  const hasY10 = !!(geo.fredY10||geo.ecbY10);
+  const hasFX  = !!geo.fredFX;
   const isBloc  = geo.type === 'bloc';
   const isGlobal= geo.type === 'global';
 
@@ -916,10 +946,10 @@ function renderGeoShell(geo) {
       chartCard('b-fdi',   'FDI Net Inflows % GDP — Members'),
     ].join('');
   } else {
-    const c1 = (hasFred && hasY10) ? chartCard('c-y10','10yr Government Bond Yield') : noDataCard('c-y10-x','10yr Government Bond Yield', hasFred ? 'No FRED series' : 'Add FRED key');
-    const c2 = (hasFred && hasY10 && geo.spreadRef) ? chartCard('c-sprd','Yield Spread vs Benchmark') : geo.spreadRef===null ? noDataCard('c-sprd-x','Yield Spread','USA is the benchmark') : noDataCard('c-sprd-x2','Yield Spread vs Benchmark', hasFred ? 'Yield data unavailable' : 'Add FRED key');
+    const c1 = (hasY10) ? chartCard('c-y10','10yr Government Bond Yield') : noDataCard('c-y10-x','10yr Government Bond Yield', 'Yield data unavailable');
+    const c2 = (hasY10 && geo.spreadRef) ? chartCard('c-sprd','Yield Spread vs Benchmark') : geo.spreadRef===null ? noDataCard('c-sprd-x','Yield Spread','USA is the benchmark') : noDataCard('c-sprd-x2','Yield Spread vs Benchmark', 'Yield data unavailable');
     const c3 = chartCard('c-rpol', 'Real Policy Rate (CB − CPI)');
-    const c4 = (hasFred && hasFX)  ? chartCard('c-fx','Exchange Rate (FX vs USD)') : noDataCard('c-fx-x','Exchange Rate', hasFred ? 'FX data unavailable' : 'Add FRED key');
+    const c4 = (hasFX)  ? chartCard('c-fx','Exchange Rate (FX vs USD)') : noDataCard('c-fx-x','Exchange Rate', 'FX data unavailable');
     const c5 = chartCard('c-gdp','GDP Growth — Annual');
     const c6 = chartCard('c-cpi','Inflation (CPI) — Annual');
     chartHtml = c1 + c2 + c3 + c4 + c5 + c6;
@@ -959,7 +989,7 @@ function renderGeoShell(geo) {
         <div id="geo-sub-disp">${geo.sub || ''}</div>
         <div id="data-mode">
           <span class="dot"></span>
-          <span id="data-mode-txt">${CFG.fred ? 'Live + World Bank' : 'World Bank only — add FRED key for financial series'}</span>
+          <span id="data-mode-txt">${'Yahoo Finance + ECB + World Bank'}</span>
         </div>
       </div>
       <div id="score-area">
@@ -982,7 +1012,7 @@ function renderGeoShell(geo) {
 
     <div class="sec-hd">
       <span class="sec-lbl">Relationship Charts</span>
-      <span class="sec-note" id="chart-src-note">${CFG.fred ? '12M FRED series + World Bank annual' : 'World Bank annual — add FRED key for time series'}</span>
+      <span class="sec-note" id="chart-src-note">${CFG.fred ? 'FRED + ECB + World Bank' : 'ECB + World Bank (add FRED key for full financial layer)'}</span>
     </div>
     <div id="cht-grid">${chartHtml}</div>
 
@@ -1042,139 +1072,99 @@ function selectGeo(id) {
 }
 
 async function loadBenchmarks() {
-  if (!CFG.fred) return;
+  if (!CFG.fred) {
+    document.getElementById('last-upd').textContent = 'Add FRED key for live benchmarks';
+    return;
+  }
   try {
     const [vixD, goldD, oilD] = await Promise.all([
-      cached('fred_vix', () => fredFetch('VIXCLS', 5)),
+      cached('fred_vix',  () => fredFetch('VIXCLS', 5)),
       cached('fred_gold', () => fredFetch('GOLDAMGBD228NLBM', 5)),
-      cached('fred_oil', () => fredFetch('DCOILBRENTEU', 5)),
+      cached('fred_oil',  () => fredFetch('DCOILBRENTEU', 5)),
     ]);
-
     const vix = last(vixD), gold = last(goldD), oil = last(oilD);
-
     if (vix !== null) {
       document.getElementById('bv').textContent = vix.toFixed(1);
-      const [lbl, cls] = vix<15?['LOW','r-low']:vix<25?['NORMAL','r-normal']:vix<40?['STRESS','r-stress']:['CRISIS','r-crisis'];
-      const brel = document.getElementById('br');
-      brel.textContent = lbl; brel.className = 'regime '+cls;
+      const [lbl,cls] = vix<15?['LOW','r-low']:vix<25?['NORMAL','r-normal']:vix<40?['STRESS','r-stress']:['CRISIS','r-crisis'];
+      const el = document.getElementById('br'); el.textContent=lbl; el.className='regime '+cls;
       window._vix = vix;
     }
     if (gold !== null) {
-      document.getElementById('gv').textContent = '$' + gold.toLocaleString('en',{maximumFractionDigits:0});
-      if (goldD.length>=2) {
-        const p = goldD[goldD.length-2].v;
-        const pct = ((gold-p)/p*100).toFixed(2);
-        document.getElementById('gd').innerHTML = `<span class="${gold>=p?'dp':'dn'}">${gold>=p?'+':''}${pct}%</span>`;
-      }
+      document.getElementById('gv').textContent = '$'+gold.toLocaleString('en',{maximumFractionDigits:0});
+      if (goldD.length>=2) { const p=goldD[goldD.length-2].v, pct=((gold-p)/p*100).toFixed(2); document.getElementById('gd').innerHTML='<span class="'+(gold>=p?'dp':'dn')+'">'+(gold>=p?'+':'')+pct+'%</span>'; }
       window._gold = gold;
     }
     if (oil !== null) {
-      document.getElementById('ov').textContent = '$' + oil.toFixed(1);
-      if (oilD.length>=2) {
-        const p = oilD[oilD.length-2].v;
-        const pct = ((oil-p)/p*100).toFixed(2);
-        document.getElementById('od').innerHTML = `<span class="${oil>=p?'dp':'dn'}">${oil>=p?'+':''}${pct}%</span>`;
-      }
+      document.getElementById('ov').textContent = '$'+oil.toFixed(1);
+      if (oilD.length>=2) { const p=oilD[oilD.length-2].v, pct=((oil-p)/p*100).toFixed(2); document.getElementById('od').innerHTML='<span class="'+(oil>=p?'dp':'dn')+'">'+(oil>=p?'+':'')+pct+'%</span>'; }
       window._oil = oil;
     }
     if (gold && oil) {
       const ratio = gold/oil;
       document.getElementById('rv').textContent = ratio.toFixed(1)+'x';
       const rs = document.getElementById('rs');
-      if (ratio > 35) { rs.textContent='↑ Elevated'; rs.className='regime ratio-h'; }
-      else if (ratio < 15) { rs.textContent='↓ Compressed'; rs.className='regime ratio-h'; }
-      else { rs.textContent='Normal range'; rs.className='regime ratio-n'; }
+      if (ratio>35){rs.textContent='↑ Elevated';rs.className='regime ratio-h';}
+      else if(ratio<15){rs.textContent='↓ Compressed';rs.className='regime ratio-h';}
+      else{rs.textContent='Normal range';rs.className='regime ratio-n';}
       window._ratio = ratio;
     }
-
-    document.getElementById('last-upd').textContent = 'Updated ' + new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});
-  } catch(e) { console.error('Benchmark error', e); }
+    document.getElementById('last-upd').textContent = 'Updated '+new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) { console.error('Benchmark error',e); }
 }
 
 async function loadGlobal() {
-  const [gdpS, cpiS, unS, polS, debtS] = await Promise.all([
-    cached('wb_1W_gdp',  () => wbSeries('1W', WBI.GDP)),
-    cached('wb_1W_cpi',  () => wbSeries('1W', WBI.CPI)),
-    cached('wb_1W_un',   () => wbSeries('1W', WBI.UNEMP)),
-    cached('wb_1W_pol',  () => wbSeries('1W', WBI.POLST)),
-    cached('wb_1W_debt', () => wbSeries('1W', WBI.DEBT)),
+  const [gdpS,cpiS,unS,polS,debtS] = await Promise.all([
+    cached('wb_1W_gdp',  () => wbSeries('1W',WBI.GDP)),
+    cached('wb_1W_cpi',  () => wbSeries('1W',WBI.CPI)),
+    cached('wb_1W_un',   () => wbSeries('1W',WBI.UNEMP)),
+    cached('wb_1W_pol',  () => wbSeries('1W',WBI.POLST)),
+    cached('wb_1W_debt', () => wbSeries('1W',WBI.DEBT)),
   ]);
+  const gdp=last(gdpS),cpi=last(cpiS),unemp=last(unS),polSt=last(polS),debt=last(debtS);
+  const score = computeScore({gdp,cpi,unemp,polSt,debt,ca:null,spread:null});
+  const hist  = computeHistoricalScores(gdpS,cpiS,unS,polS,debtS,null,null);
+  updateScoreDisplay(score,hist); setSidebarScore('global',score);
 
-  const gdp  = last(gdpS),  cpi  = last(cpiS);
-  const unemp= last(unS),   polSt= last(polS);
-  const debt = last(debtS);
+  setMetric('g-gdp',  fmt(gdp,2,'%'), ''); setMetric('g-cpi',  fmt(cpi,2,'%'), '');
+  setMetric('g-unemp',fmt(unemp,1,'%'),''); setMetric('g-polst',fmt(polSt,2),'');
+  setMetric('g-debt', fmt(debt,1,'%'),'');
+  setMetric('g-vix2', window._vix  ? fmt(window._vix,1)                        : '—','');
+  setMetric('g-gold2',window._gold ? '$'+Math.round(window._gold).toLocaleString(): '—','');
+  setMetric('g-oil2', window._oil  ? '$'+fmt(window._oil,1)                    : '—','');
 
-  const score = computeScore({ gdp, cpi, unemp, polSt, debt, ca:null, spread:null });
-  const hist = computeHistoricalScores(gdpS, cpiS, unS, polS, debtS, null, null);
-
-  updateScoreDisplay(score, hist);
-  setSidebarScore('global', score);
-
-  // Metric cards
-  setMetric('g-gdp', fmt(gdp,2,'%'), fmtDpct(pctD(gdpS.map(o=>({dt:o.yr+'',v:o.v})),1)));
-  setMetric('g-cpi', fmt(cpi,2,'%'), fmtDpct(pctD(cpiS.map(o=>({dt:o.yr+'',v:o.v})),1)));
-  setMetric('g-unemp', fmt(unemp,1,'%'), '');
-  setMetric('g-polst', fmt(polSt,2), '');
-  setMetric('g-debt', fmt(debt,1,'%'), '');
-  setMetric('g-vix2', window._vix ? fmt(window._vix,1) : '—', '');
-  setMetric('g-gold2', window._gold ? '$'+Math.round(window._gold).toLocaleString() : '—', '');
-  setMetric('g-oil2', window._oil ? '$'+fmt(window._oil,1) : '—', '');
-
-  // Charts
   if (CFG.fred) {
-    const [vixD, goldD, oilD] = await Promise.all([
-      cached('fred_vix12', () => fredFetch('VIXCLS', 260)),
-      cached('fred_gold12', () => fredFetch('GOLDAMGBD228NLBM', 260)),
-      cached('fred_oil12', () => fredFetch('DCOILBRENTEU', 260)),
+    const [vixD,goldD,oilD] = await Promise.all([
+      cached('fred_vix260',  () => fredFetch('VIXCLS',260)),
+      cached('fred_gold260', () => fredFetch('GOLDAMGBD228NLBM',260)),
+      cached('fred_oil260',  () => fredFetch('DCOILBRENTEU',260)),
     ]);
-
     if (vixD?.length) {
-      const lbs = vixD.map(o => o.dt.slice(5));
-      lineChart('g-vix', lbs, [{ data: vixD.map(o=>o.v), borderColor:'#2563a8', label:'VIX' }], '');
-      const v = last(vixD);
-      setSig('g-vix', v<15?'COMPLACENT':v<25?'NORMAL':v<40?'STRESS':'CRISIS', v<25?'p':v<40?'w':'n');
-      setFt('g-vix', `Current: ${fmt(v,1)} | 12-month range`);
+      lineChart('g-vix',vixD.map(o=>o.dt.slice(5)),[{data:vixD.map(o=>o.v),borderColor:'#2563a8',label:'VIX'}],'');
+      const v=last(vixD); setSig('g-vix',v<15?'COMPLACENT':v<25?'NORMAL':v<40?'STRESS':'CRISIS',v<25?'p':v<40?'w':'n');
+      setFt('g-vix','Current: '+fmt(v,1)+' | FRED');
     }
     if (goldD?.length) {
-      lineChart('g-gold', goldD.map(o=>o.dt.slice(5)), [{ data:goldD.map(o=>o.v), borderColor:'#dba030', label:'Gold USD/oz' }], '');
-      setSig('g-gold', 'SAFE HAVEN', 'w');
-      setFt('g-gold', `Current: $${Math.round(last(goldD)).toLocaleString()}`);
+      lineChart('g-gold',goldD.map(o=>o.dt.slice(5)),[{data:goldD.map(o=>o.v),borderColor:'#dba030',label:'Gold USD/oz'}],'');
+      setSig('g-gold','SAFE HAVEN','w'); setFt('g-gold','Current: $'+Math.round(last(goldD)).toLocaleString()+' | FRED');
     }
     if (oilD?.length) {
-      lineChart('g-oil', oilD.map(o=>o.dt.slice(5)), [{ data:oilD.map(o=>o.v), borderColor:'#e87840', label:'Brent USD/bbl' }], '');
-      setSig('g-oil', 'GROWTH PROXY', 'x');
-      setFt('g-oil', `Current: $${fmt(last(oilD),1)}`);
+      lineChart('g-oil',oilD.map(o=>o.dt.slice(5)),[{data:oilD.map(o=>o.v),borderColor:'#e87840',label:'Brent USD/bbl'}],'');
+      setSig('g-oil','GROWTH PROXY','x'); setFt('g-oil','Current: $'+fmt(last(oilD),1)+' | FRED');
     }
     if (goldD?.length && oilD?.length) {
-      // Align dates
-      const dMap = {};
-      goldD.forEach(o => dMap[o.dt] = { g:o.v });
-      oilD.forEach(o => { if(dMap[o.dt]) dMap[o.dt].o = o.v; });
-      const aligned = Object.entries(dMap).filter(([,v])=>v.g&&v.o).sort(([a],[b])=>a.localeCompare(b));
-      const ratioVals = aligned.map(([,v])=>v.g/v.o);
-      lineChart('g-ratio', aligned.map(([k])=>k.slice(5)), [{ data:ratioVals, borderColor:'#27b974', label:'Gold/Oil Ratio (x)' }], 'x');
-      setSig('g-ratio', last(oilD)>0&&last(goldD)/last(oilD)>35?'ELEVATED':'NORMAL', last(goldD)/last(oilD)>35?'w':'x');
-      setFt('g-ratio', `Historical norm: 15–30x`);
+      const dMap={};
+      goldD.forEach(o=>dMap[o.dt]={g:o.v});
+      oilD.forEach(o=>{if(dMap[o.dt])dMap[o.dt].o=o.v;});
+      const al=Object.entries(dMap).filter(([,v])=>v.g&&v.o).sort(([a],[b])=>a.localeCompare(b));
+      const rv=al.map(([,v])=>v.g/v.o);
+      lineChart('g-ratio',al.map(([k])=>k.slice(5)),[{data:rv,borderColor:'#27b974',label:'Gold/Oil (x)'}],'x');
+      const rr=rv[rv.length-1];
+      setSig('g-ratio',rr>35?'ELEVATED':rr<15?'COMPRESSED':'NORMAL',rr>35||rr<15?'w':'x');
+      setFt('g-ratio','Norm: 15–30x | Current: '+fmt(rr,1)+'x');
     }
-  } else {
-    ['g-vix','g-gold','g-oil','g-ratio'].forEach(id => {
-      destroyChart(id);
-      const w = document.querySelector(`#cc-${id} .cc-wrap`);
-      if (w) w.innerHTML = '<div class="no-data"><span style="font-size:18px;opacity:.2">⚿</span><span>Add FRED key to unlock</span></div>';
-    });
   }
-
-  if (gdpS.length) {
-    const yrs = gdpS.map(o=>String(o.yr));
-    barChart('g-gdp', yrs, gdpS.map(o=>o.v));
-    setSig('g-gdp', last(gdpS)>=2.5?'EXPANDING':last(gdpS)>=0?'SLOWING':'CONTRACTING', last(gdpS)>=2?'p':last(gdpS)>=0?'w':'n');
-    setFt('g-gdp', `Latest: ${fmt(last(gdpS),2,'%')} (${lastYr(gdpS)})`);
-  }
-  if (cpiS.length) {
-    barChart('g-cpi', cpiS.map(o=>String(o.yr)), cpiS.map(o=>o.v));
-    setSig('g-cpi', Math.abs((last(cpiS)||0)-2)<1?'ON TARGET':'ELEVATED', Math.abs((last(cpiS)||0)-2)<2?'p':'n');
-    setFt('g-cpi', `Latest: ${fmt(last(cpiS),2,'%')} (${lastYr(cpiS)})`);
-  }
+  if (gdpS.length){ barChart('g-gdp',gdpS.map(o=>String(o.yr)),gdpS.map(o=>o.v)); setSig('g-gdp',gdp>=2?'EXPANDING':gdp>=0?'SLOWING':'CONTRACTING',gdp>=2?'p':gdp>=0?'w':'n'); setFt('g-gdp','Latest: '+fmt(gdp,2,'%')+' ('+lastYr(gdpS)+') | World Bank'); }
+  if (cpiS.length){ barChart('g-cpi',cpiS.map(o=>String(o.yr)),cpiS.map(o=>o.v)); setSig('g-cpi',Math.abs((cpi||0)-2)<1?'ON TARGET':'ELEVATED',Math.abs((cpi||0)-2)<2?'p':'n'); setFt('g-cpi','Latest: '+fmt(cpi,2,'%')+' ('+lastYr(cpiS)+') | World Bank'); }
 }
 
 function computeHistoricalScores(gdpS, cpiS, unS, polS, debtS, caS, sprdData) {
@@ -1266,183 +1256,98 @@ async function loadBrics() {
 }
 
 async function loadCountry(geo) {
-  const id = geo.id;
-
-  // WB data (always)
-  const [gdpS, cpiS, unS, polS, debtS, caS] = await Promise.all([
-    cached(`wb_${geo.wbCode}_gdp`,  () => wbSeries(geo.wbCode, WBI.GDP)),
-    cached(`wb_${geo.wbCode}_cpi`,  () => wbSeries(geo.wbCode, WBI.CPI)),
-    cached(`wb_${geo.wbCode}_un`,   () => wbSeries(geo.wbCode, WBI.UNEMP)),
-    cached(`wb_${geo.wbCode}_pol`,  () => wbSeries(geo.wbCode, WBI.POLST)),
-    cached(`wb_${geo.wbCode}_debt`, () => wbSeries(geo.wbCode, WBI.DEBT)),
-    cached(`wb_${geo.wbCode}_ca`,   () => wbSeries(geo.wbCode, WBI.CA)),
+  // World Bank macro (always)
+  const [gdpS,cpiS,unS,polS,debtS,caS] = await Promise.all([
+    cached('wb_'+geo.wbCode+'_gdp',  () => wbSeries(geo.wbCode,WBI.GDP)),
+    cached('wb_'+geo.wbCode+'_cpi',  () => wbSeries(geo.wbCode,WBI.CPI)),
+    cached('wb_'+geo.wbCode+'_un',   () => wbSeries(geo.wbCode,WBI.UNEMP)),
+    cached('wb_'+geo.wbCode+'_pol',  () => wbSeries(geo.wbCode,WBI.POLST)),
+    cached('wb_'+geo.wbCode+'_debt', () => wbSeries(geo.wbCode,WBI.DEBT)),
+    cached('wb_'+geo.wbCode+'_ca',   () => wbSeries(geo.wbCode,WBI.CA)),
   ]);
+  const gdp=last(gdpS),cpi=last(cpiS),unemp=last(unS),polSt=last(polS),debt=last(debtS),ca=last(caS);
 
-  const gdp  = last(gdpS), cpi = last(cpiS), unemp = last(unS);
-  const polSt= last(polS), debt= last(debtS), ca    = last(caS);
-
-  // FRED data (if key set)
-  let y10D=null, y2D=null, cbD=null, cpiFD=null, unFD=null, fxD=null;
-  let benchY10D = null;
+  // Financial: FRED (if key) + ECB (always for eurozone)
+  let y10D=null, cbD=null, fxD=null, benchY10D=null, ecbD=null, ecbRateD=null;
 
   if (CFG.fred) {
-    const fetches = [
-      geo.fredY10 ? cached(`fred_${geo.fredY10}_60`,  () => fredFetch(geo.fredY10, 60))  : Promise.resolve(null),
-      geo.fredY2  ? cached(`fred_${geo.fredY2}_60`,   () => fredFetch(geo.fredY2, 60))   : Promise.resolve(null),
-      geo.fredCB  ? cached(`fred_${geo.fredCB}_24`,   () => fredFetch(geo.fredCB, 24))   : Promise.resolve(null),
-      geo.fredCPI ? cached(`fred_${geo.fredCPI}_400`, () => fredFetch(geo.fredCPI, 400)) : Promise.resolve(null),
-      geo.fredUn  ? cached(`fred_${geo.fredUn}_60`,   () => fredFetch(geo.fredUn, 60))   : Promise.resolve(null),
-      geo.fredFX  ? cached(`fred_${geo.fredFX}_260`,  () => fredFetch(geo.fredFX, 260))  : Promise.resolve(null),
-    ];
-
-    [y10D, y2D, cbD, cpiFD, unFD, fxD] = await Promise.all(fetches);
-
-    // Benchmark yield for spread
-    if (geo.spreadRef === 'usa') {
-      benchY10D = await cached('fred_DGS10_60', () => fredFetch('DGS10', 60));
-    } else if (geo.spreadRef === 'germany') {
-      benchY10D = await cached('fred_IRLTLT01DEM156N_60', () => fredFetch('IRLTLT01DEM156N', 60));
-    }
+    [y10D, cbD, fxD] = await Promise.all([
+      geo.fredY10 ? cached('fred_'+geo.fredY10, () => fredFetch(geo.fredY10,60))   : Promise.resolve(null),
+      geo.fredCB  ? cached('fred_'+geo.fredCB,  () => fredFetch(geo.fredCB,24))    : Promise.resolve(null),
+      geo.fredFX  ? cached('fred_'+geo.fredFX,  () => fredFetch(geo.fredFX,260))   : Promise.resolve(null),
+    ]);
+    if (geo.spreadRef==='usa')     benchY10D = await cached('fred_DGS10',              () => fredFetch('DGS10',60));
+    if (geo.spreadRef==='germany') benchY10D = await cached('fred_IRLTLT01DEM156N',    () => fredFetch('IRLTLT01DEM156N',60));
   }
 
-  // Derived metrics
-  const y10   = last(y10D);
-  const cb    = last(cbD);
-  const cpiLive = cpiFD ? yoy(cpiFD) : cpi;
-  const unLive  = last(unFD) || unemp;
+  // ECB yields for eurozone (works without FRED key)
+  if (geo.ecbY10) {
+    ecbD     = await cached('ecb_'+geo.ecbY10, () => ecbYield(geo.ecbY10, 36));
+    ecbRateD = await cached('ecb_rate',         () => ecbRate());
+    if (!benchY10D && geo.spreadRef==='germany')
+      benchY10D = await cached('ecb_DE', () => ecbYield('DE',36));
+  }
+
+  // Resolve best available yield source
+  const y10Src = y10D?.length ? y10D : ecbD?.length ? ecbD.map(o=>({dt:o.dt,v:o.v})) : null;
+  const y10    = last(y10Src);
+  const cb     = last(cbD) ?? last(ecbRateD);
   const benchY10 = last(benchY10D);
-  const spread = (y10 !== null && benchY10 !== null) ? (y10 - benchY10) * 100 : null; // bps
-  const realRate = (cb !== null && (cpiLive||cpi) !== null) ? cb - (cpiLive||cpi||0) : null;
+  const spread   = (y10!==null && benchY10!==null) ? (y10-benchY10)*100 : null;
+  const realRate = (cb!==null && cpi!==null) ? cb-cpi : null;
 
-  const score = computeScore({ gdp, cpi: cpiLive||cpi, unemp: unLive, polSt, debt, ca, spread });
-  const hist  = computeHistoricalScores(gdpS, cpiS, unS, polS, debtS, caS, null);
+  const score = computeScore({gdp,cpi,unemp,polSt,debt,ca,spread});
+  const hist  = computeHistoricalScores(gdpS,cpiS,unS,polS,debtS,caS,null);
+  updateScoreDisplay(score,hist); setSidebarScore(geo.id,score);
 
-  updateScoreDisplay(score, hist);
-  setSidebarScore(id, score);
-
-  // Metric cards
-  const y10Txt = y10 !== null ? fmt(y10,2,'%') : (geo.dataLtd ? 'N/A' : '—');
-  const cbTxt  = cb  !== null ? fmt(cb,2,'%')  : (geo.fredCB ? '—' : (geo.wbCode ? '—' : 'N/A'));
-  const cpiTxt = fmt(cpiLive||cpi, 2, '%');
-  const unTxt  = fmt(unLive, 1, '%');
-
-  setMetric('c-y10m',  y10Txt, y10D&&y10D.length>1 ? fmtD(pctD(y10D,1),'pp') : '');
-  setMetric('c-cb',    cbTxt, '');
-  setMetric('c-rpol2', realRate!==null ? fmt(realRate,2,'%') : '—', '', realRate!==null?(realRate>0?'Positive':'Financial repression'):'');
-  setMetric('c-sprd2', spread!==null ? fmt(spread,0,'bp') : (geo.spreadRef===null?'Benchmark':'—'), spread!==null ? fmtD(spread/100,'pp') : '');
-  setMetric('c-gdp2',  fmt(gdp,2,'%'), fmtDpct(pctD(gdpS.map(o=>({v:o.v,dt:o.yr+''})),1)));
-  setMetric('c-cpi2',  cpiTxt, '');
-  setMetric('c-unemp2',unTxt, '');
-  setMetric('c-debt2', fmt(debt,1,'%'), fmtDpct(pctD(debtS.map(o=>({v:o.v,dt:o.yr+''})),1)));
+  // Metrics
+  setMetric('c-y10m',  y10!==null?fmt(y10,2,'%'):(geo.dataLtd?'N/A':'—'), '');
+  setMetric('c-cb',    cb!==null?fmt(cb,2,'%'):'—', '');
+  setMetric('c-rpol2', realRate!==null?fmt(realRate,2,'%'):'—', '');
+  setMetric('c-sprd2', spread!==null?fmt(spread,0,'bp'):(geo.spreadRef===null?'Benchmark':'—'), spread!==null?fmtD(spread/100,'pp'):'');
+  setMetric('c-gdp2',  fmt(gdp,2,'%'),  fmtDpct(pctD(gdpS.map(o=>({v:o.v})),1)));
+  setMetric('c-cpi2',  fmt(cpi,2,'%'),  '');
+  setMetric('c-unemp2',fmt(unemp,1,'%'),'');
+  setMetric('c-debt2', fmt(debt,1,'%'), fmtDpct(pctD(debtS.map(o=>({v:o.v})),1)));
 
   // Charts
-  if (y10D?.length) {
-    const lbs = y10D.map(o => o.dt.slice(0,7));
-    let ds = [{ data:y10D.map(o=>o.v), borderColor:'#e87840', label:geo.name+' 10yr' }];
+  if (y10Src?.length) {
+    let ds=[{data:y10Src.map(o=>o.v),borderColor:'#e87840',label:geo.name+' 10yr'}];
     if (benchY10D?.length) {
-      // align dates
-      const bMap = {};
-      benchY10D.forEach(o => bMap[o.dt.slice(0,7)] = o.v);
-      const bAligned = lbs.map(l => bMap[l] ?? null);
-      ds.push({ data:bAligned, borderColor:'#2563a8', label:'Benchmark' });
+      const bMap={}; benchY10D.forEach(o=>bMap[o.dt?.slice?.(0,7)||o.dt]=o.v);
+      ds.push({data:y10Src.map(o=>bMap[o.dt?.slice?.(0,7)||o.dt]??null),borderColor:'#2563a8',label:'Benchmark'});
     }
-    lineChart('c-y10', lbs, ds, '%');
-    setSig('c-y10', y10>4?'ELEVATED':y10>2?'NORMAL':'LOW', y10>5?'n':y10>2?'x':'p');
-    setFt('c-y10', `Latest: ${fmt(y10,2,'%')} | Source: FRED`);
+    lineChart('c-y10',y10Src.map(o=>o.dt?.slice?.(0,7)||o.dt),ds,'%');
+    setSig('c-y10',y10>5?'ELEVATED':y10>2?'NORMAL':'LOW',y10>5?'n':y10>2?'x':'p');
+    setFt('c-y10','Latest: '+fmt(y10,2,'%')+' | '+(y10D?.length?'FRED':'ECB SDW'));
   }
 
-  if (y10D?.length && benchY10D?.length) {
-    const bMap = {};
-    benchY10D.forEach(o => bMap[o.dt.slice(0,7)] = o.v);
-    const sprdPts = y10D.map(o => {
-      const b = bMap[o.dt.slice(0,7)];
-      return b !== undefined ? (o.v - b)*100 : null;
-    }).filter(v=>v!==null);
-    const lbs2 = y10D.filter((_,i)=>{
-      const b = bMap[y10D[i].dt.slice(0,7)];
-      return b!==undefined;
-    }).map(o=>o.dt.slice(0,7));
-    if (sprdPts.length) {
-      lineChart('c-sprd', lbs2, [{ data:sprdPts, borderColor:'#e87840', label:'Spread (bps)' }], 'bp');
-      const sp = sprdPts[sprdPts.length-1];
-      setSig('c-sprd', sp>200?'ELEVATED':sp>50?'MODERATE':'TIGHT', sp>200?'n':sp>50?'w':'p');
-      setFt('c-sprd', `Current: ${fmt(sp,0,'bp')} vs ${geo.spreadRef}`);
+  if (y10Src?.length && benchY10D?.length) {
+    const bMap={}; benchY10D.forEach(o=>bMap[o.dt?.slice?.(0,7)||o.dt]=o.v);
+    const pts=y10Src.map(o=>{const b=bMap[o.dt?.slice?.(0,7)||o.dt];return b!=null?(o.v-b)*100:null;}).filter(v=>v!==null);
+    const lbs=y10Src.filter(o=>bMap[o.dt?.slice?.(0,7)||o.dt]!=null).map(o=>o.dt?.slice?.(0,7)||o.dt);
+    if (pts.length) {
+      lineChart('c-sprd',lbs,[{data:pts,borderColor:'#e87840',label:'Spread (bps)'}],'bp');
+      const sp=pts[pts.length-1]; setSig('c-sprd',sp>200?'ELEVATED':sp>50?'MODERATE':'TIGHT',sp>200?'n':sp>50?'w':'p');
+      setFt('c-sprd','Current: '+fmt(sp,0,'bp')+' vs '+geo.spreadRef);
     }
   }
 
-  // Real policy rate chart
-  if (cbD?.length && (cpiS.length||cpiFD?.length)) {
-    const cpiRef = cpiFD ? cpiFD : cpiS.map(o=>({dt:`${o.yr}-06-15`,v:o.v}));
-    const cbMap = {};
-    cbD.forEach(o => { cbMap[o.dt.slice(0,7)] = o.v; });
-    const cpiMap = {};
-    cpiRef.forEach(o => { if(o.v) cpiMap[o.dt.slice(0,7)] = o.v; });
-
-    // Build real rate series: for monthly CB data against available CPI
-    const rr = [];
-    cbD.forEach(o => {
-      const m = o.dt.slice(0,7);
-      const cbv = o.v;
-      // Find closest CPI
-      let cpiv = cpiMap[m];
-      if (cpiv===undefined) {
-        const keys = Object.keys(cpiMap).sort();
-        const before = keys.filter(k=>k<=m);
-        cpiv = before.length ? cpiMap[before[before.length-1]] : null;
-      }
-      if (cpiv !== null && cpiv !== undefined) {
-        rr.push({ dt:m, v: cbv - (cpiFD ? yoyAtDate(cpiFD, o.dt) : cpiv) });
-      }
-    });
-
-    if (rr.length) {
-      lineChart('c-rpol', rr.map(o=>o.dt), [{ data:rr.map(o=>o.v), borderColor:'#5b9bd4', label:'Real Rate %' }], '%');
-      const rrL = rr[rr.length-1].v;
-      setSig('c-rpol', rrL>0?'POSITIVE':rrL>-2?'SLIGHTLY NEG':'REPRESSIVE', rrL>0?'p':rrL>-3?'w':'n');
-      setFt('c-rpol', `Current: ${fmt(rrL,2,'%')} | CB rate − CPI`);
-    } else if (cb!==null && (cpiLive||cpi)!==null) {
-      // Fallback: use single values
-      const rp = cb - (cpiLive||cpi||0);
-      document.getElementById('cc-wrap-rpol') && lineChart('c-rpol',['Now'],[{data:[rp],borderColor:'#5b9bd4'}],'%');
-    }
-  } else {
-    // Use WB CPI and WB lending rate as fallback
-    const lendS = await cached(`wb_${geo.wbCode}_lend`, () => wbSeries(geo.wbCode, WBI.LEND));
-    if (lendS.length && cpiS.length) {
-      const yrs = lendS.filter(o => valAtYr(cpiS,o.yr)!==null).map(o=>String(o.yr));
-      const rrVals = yrs.map(yr => valAtYr(lendS,parseInt(yr)) - valAtYr(cpiS,parseInt(yr)));
-      if (yrs.length) {
-        barChart('c-rpol', yrs, rrVals, '%');
-        const rrL = rrVals[rrVals.length-1];
-        setSig('c-rpol', rrL>0?'POSITIVE':'REPRESSIVE', rrL>0?'p':'n');
-        setFt('c-rpol', `Lending rate − CPI (WB annual proxy)`);
-      }
-    }
+  if (cb!==null && cpiS.length) {
+    barChart('c-rpol',cpiS.map(o=>String(o.yr)),cpiS.map(o=>cb-o.v),'%');
+    const rrL=cb-(cpi||0); setSig('c-rpol',rrL>0?'POSITIVE':rrL>-2?'SLIGHT NEG':'REPRESSIVE',rrL>0?'p':rrL>-3?'w':'n');
+    setFt('c-rpol','CB rate '+fmt(cb,2,'%')+' minus annual CPI');
   }
 
-  // FX chart
   if (fxD?.length) {
-    const fxVals = fxD.map(o => geo.fxDir === -1 ? (1/o.v) : o.v);
-    lineChart('c-fx', fxD.map(o=>o.dt.slice(0,7)), [{ data:fxVals, borderColor:'#27b974', label:geo.fxLabel }], '');
-    const fxL = fxVals[fxVals.length-1];
-    const fx5 = fxVals[0];
-    setSig('c-fx', fxL>fx5?'APPRECIATING':'DEPRECIATING', geo.fxDir===1?(fxL>fx5?'p':'n'):(fxL>fx5?'n':'p'));
-    setFt('c-fx', `Latest: ${fmt(fxL,4)} | Source: FRED`);
+    lineChart('c-fx',fxD.map(o=>o.dt.slice(0,7)),[{data:fxD.map(o=>o.v),borderColor:'#27b974',label:geo.fredFX}],'');
+    const fxL=fxD[fxD.length-1].v,fxF=fxD[0].v;
+    setSig('c-fx',fxL>fxF?'APPRECIATING':'DEPRECIATING',fxL>fxF?'p':'n');
+    setFt('c-fx','Latest: '+fmt(fxL,4)+' | FRED');
   }
 
-  // GDP bar chart
-  if (gdpS.length) {
-    barChart('c-gdp', gdpS.map(o=>String(o.yr)), gdpS.map(o=>o.v));
-    setSig('c-gdp', gdp>=2?'EXPANDING':gdp>=0?'SLOWING':'CONTRACTING', gdp>=2?'p':gdp>=0?'w':'n');
-    setFt('c-gdp', `Latest: ${fmt(gdp,2,'%')} (${lastYr(gdpS)}) | World Bank`);
-  }
-
-  // CPI bar chart
-  if (cpiS.length) {
-    barChart('c-cpi', cpiS.map(o=>String(o.yr)), cpiS.map(o=>o.v));
-    setSig('c-cpi', Math.abs((cpi||0)-2)<1?'ON TARGET':cpi>8?'HIGH INFLATION':'ELEVATED', Math.abs((cpi||0)-2)<3?'p':cpi>8?'n':'w');
-    setFt('c-cpi', `Latest: ${fmt(cpi,2,'%')} (${lastYr(cpiS)}) | World Bank`);
-  }
+  if (gdpS.length) { barChart('c-gdp',gdpS.map(o=>String(o.yr)),gdpS.map(o=>o.v)); setSig('c-gdp',gdp>=2?'EXPANDING':gdp>=0?'SLOWING':'CONTRACTING',gdp>=2?'p':gdp>=0?'w':'n'); setFt('c-gdp','Latest: '+fmt(gdp,2,'%')+' ('+lastYr(gdpS)+') | World Bank'); }
+  if (cpiS.length) { barChart('c-cpi',cpiS.map(o=>String(o.yr)),cpiS.map(o=>o.v)); setSig('c-cpi',Math.abs((cpi||0)-2)<1?'ON TARGET':cpi>8?'HIGH':'ELEVATED',Math.abs((cpi||0)-2)<3?'p':cpi>8?'n':'w'); setFt('c-cpi','Latest: '+fmt(cpi,2,'%')+' ('+lastYr(cpiS)+') | World Bank'); }
 }
 
 function yoyAtDate(arr, targetDt) {
@@ -1542,7 +1447,6 @@ Tone: Analyst, not journalist. Specific. No hedging phrases like "it appears" or
 // ═══════════════════════════════════════════
 document.getElementById('keys-btn').onclick = () => {
   document.getElementById('fi').value = CFG.fred;
-  document.getElementById('ai').value = CFG.av;
   document.getElementById('sov').classList.add('open');
 };
 
@@ -1550,49 +1454,35 @@ document.getElementById('cls-k').onclick = () => document.getElementById('sov').
 
 document.getElementById('save-k').onclick = async () => {
   const fredVal = document.getElementById('fi').value.trim();
-  const avVal   = document.getElementById('ai').value.trim();
-  const btn = document.getElementById('save-k');
+  const btn     = document.getElementById('save-k');
+  const diagEl  = document.getElementById('diag');
+  diagEl.textContent = '';
 
   if (fredVal) {
-    btn.textContent = 'Validating...';
-    btn.disabled = true;
-    const valid = await new Promise((resolve) => {
-      const cb = 'fv_' + Date.now();
-      const script = document.createElement('script');
-      const timer = setTimeout(() => { delete window[cb]; script.remove(); resolve('timeout'); }, 8000);
-      window[cb] = (d) => { clearTimeout(timer); delete window[cb]; script.remove(); resolve(d.error_message || 'ok'); };
-      script.onerror = () => { clearTimeout(timer); delete window[cb]; script.remove(); resolve('script error'); };
-      script.src = 'https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&api_key=' + fredVal + '&file_type=json&sort_order=desc&limit=1&callback=' + cb;
-      document.head.appendChild(script);
-    });
-    if (valid !== 'ok') {
-      btn.textContent = '✗ ' + valid;
-      btn.style.background = '#8f1e1e';
-      setTimeout(() => { btn.textContent = 'Save & Apply'; btn.style.background = ''; btn.disabled = false; }, 3000);
-      return;
+    btn.textContent = 'Validating...'; btn.disabled = true;
+    try {
+      const url = 'https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&api_key='+fredVal+'&file_type=json&sort_order=desc&limit=3';
+      const r = await fetch(url);
+      const d = await r.json();
+      if (d.error_message) throw new Error(d.error_message);
+      const obs = (d.observations||[]).filter(o=>o.value!=='.');
+      diagEl.style.color='#27b974';
+      diagEl.textContent = '✓ FRED connected — VIX latest: '+parseFloat(obs[obs.length-1]?.value||0).toFixed(1);
+      btn.textContent='✓ Valid — saving'; btn.style.background='#1a6b45';
+    } catch(e) {
+      diagEl.style.color='#e04545'; diagEl.textContent='✗ '+e.message;
+      btn.textContent='Save & Apply'; btn.style.background=''; btn.disabled=false; return;
     }
-    btn.textContent = '✓ Key valid — saving';
-    btn.style.background = '#1a6b45';
   }
 
   CFG.fred = fredVal;
-  CFG.av   = avVal;
   localStorage.setItem('ag_fred', CFG.fred);
-  localStorage.setItem('ag_av', CFG.av);
-  btn.disabled = false;
-  btn.textContent = 'Save & Apply';
-  btn.style.background = '';
-
+  await new Promise(r=>setTimeout(r,800));
+  btn.textContent='Save & Apply'; btn.style.background=''; btn.disabled=false;
   document.getElementById('sov').classList.remove('open');
-  Object.keys(_C).forEach(k => delete _C[k]);
+  Object.keys(_C).forEach(k=>delete _C[k]);
   loadBenchmarks();
-  if (currentGeo) { const g = currentGeo; currentGeo=null; selectGeo(g); }
-};
-
-document.getElementById('ref-btn').onclick = () => {
-  Object.keys(_C).forEach(k => delete _C[k]);
-  loadBenchmarks();
-  if (currentGeo) { const g = currentGeo; currentGeo=null; selectGeo(g); }
+  if (currentGeo) { const g=currentGeo; currentGeo=null; selectGeo(g); }
 };
 
 document.getElementById('sov').onclick = (e) => {
