@@ -580,27 +580,18 @@ async function cached(k, fn, ttl=3600000) {
   } catch(e) { return null; }
 }
 
-function fredFetch(series, n=60) {
-  if (!CFG.fred) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const cb = 'fc_' + series.replace(/[^a-z0-9]/gi,'_') + '_' + Date.now();
-    const script = document.createElement('script');
-    const timer = setTimeout(() => {
-      delete window[cb]; script.remove();
-      console.warn("FRED " + series + ": timeout"); resolve(null);
-    }, 10000);
-    window[cb] = (d) => {
-      clearTimeout(timer); delete window[cb]; script.remove();
-      if (d.error_message) { console.warn("FRED " + series + ": " + d.error_message); resolve(null); return; }
-      resolve((d.observations||[])
-        .filter(o => o.value !== '.' && o.value !== '')
-        .map(o => ({ dt: o.date, v: parseFloat(o.value) }))
-        .reverse());
-    };
-    script.onerror = () => { clearTimeout(timer); delete window[cb]; script.remove(); console.warn("FRED " + series + ": script error"); resolve(null); };
-    script.src = "https://api.stlouisfed.org/fred/series/observations?series_id=" + series + "&api_key=" + CFG.fred + "&file_type=json&sort_order=desc&limit=" + n + "&callback=" + cb;
-    document.head.appendChild(script);
-  });
+async function fredFetch(series, n=60) {
+  if (!CFG.fred) return null;
+  try {
+    const url = "https://api.stlouisfed.org/fred/series/observations?series_id=" + series + "&api_key=" + CFG.fred + "&file_type=json&sort_order=desc&limit=" + n;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.error_message) { console.warn("FRED " + series + ": " + d.error_message); return null; }
+    return (d.observations||[])
+      .filter(o => o.value !== '.' && o.value !== '')
+      .map(o => ({ dt: o.date, v: parseFloat(o.value) }))
+      .reverse();
+  } catch(e) { console.warn("FRED " + series + ": " + e.message); return null; }
 }
 
 async function wbSeries(country, ind, start=2004) {
@@ -1574,15 +1565,13 @@ document.getElementById('save-k').onclick = async () => {
   if (fredVal) {
     btn.textContent = 'Validating...';
     btn.disabled = true;
-    const valid = await new Promise((resolve) => {
-      const cb = 'fv_' + Date.now();
-      const script = document.createElement('script');
-      const timer = setTimeout(() => { delete window[cb]; script.remove(); resolve('timeout'); }, 8000);
-      window[cb] = (d) => { clearTimeout(timer); delete window[cb]; script.remove(); resolve(d.error_message || 'ok'); };
-      script.onerror = () => { clearTimeout(timer); delete window[cb]; script.remove(); resolve('script error'); };
-      script.src = 'https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&api_key=' + fredVal + '&file_type=json&sort_order=desc&limit=1&callback=' + cb;
-      document.head.appendChild(script);
-    });
+    const valid = await (async () => {
+      try {
+        const r = await fetch('https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&api_key=' + fredVal + '&file_type=json&sort_order=desc&limit=1');
+        const d = await r.json();
+        return d.error_message || 'ok';
+      } catch(e) { return 'network error'; }
+    })();
     if (valid !== 'ok') {
       btn.textContent = '✗ ' + valid;
       btn.style.background = '#8f1e1e';
